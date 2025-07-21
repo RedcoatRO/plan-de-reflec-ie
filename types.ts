@@ -6,13 +6,14 @@ export enum Page {
   MyJournal = 'MY_JOURNAL',
   BadgeGallery = 'BADGE_GALLERY',
   MoodCalendar = 'MOOD_CALENDAR',
+  Profile = 'PROFILE', // Noua pagină pentru personalizare
 }
 
 export interface Plan {
   id: number;
   title: string;
   prompt1: string;
-  prompt2: string;
+  prompt2:string;
   bgColor: string;
   textColor: string;
   badge: BadgeName;
@@ -60,6 +61,43 @@ export interface Badge {
   bgColor: string;
   textColor: string;
 }
+
+// --- NEW TYPES FOR CUSTOMIZATION ---
+
+export type AvatarPartType = 'base' | 'hair' | 'eyes' | 'mouth' | 'top' | 'accessory';
+
+export interface AvatarItem {
+  id: string;
+  type: AvatarPartType;
+  name: string;
+  // Using a data URL or external URL for the image
+  imageUrl: string;
+  unlockedBy: BadgeName | null; // null means unlocked by default
+  colorizable?: 'base' | 'hair' | 'top'; // Specifies if and which color from AvatarConfig.colors it uses
+}
+
+export interface AvatarConfig {
+    parts: Record<AvatarPartType, string>; // Maps part type to item id
+    colors: {
+        base: string; // Hex color for skin
+        hair: string; // Hex color for hair
+        top: string;  // Hex color for clothes
+    }
+}
+
+export interface JournalTheme {
+  id: string;
+  name: string;
+  previewColor: string; // A simple color for the preview swatch
+  styles: {
+    backgroundColor: string;
+    backgroundImage?: string;
+    textColor: string;
+    proseColor: string; // for text inside cards
+  };
+  unlockedBy: BadgeName | null;
+}
+
 
 // --- NEW TYPES FOR DAILY FEATURES ---
 

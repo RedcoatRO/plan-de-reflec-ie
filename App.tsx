@@ -1,6 +1,5 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
-import { Page, Plan, JournalEntry, BadgeName, MoodEntry, DailyThought, StreakData } from './types';
+import { Page, Plan, JournalEntry, BadgeName, MoodEntry, DailyThought, StreakData, AvatarConfig, JournalTheme } from './types';
 import Header from './components/Header';
 import Homepage from './components/Homepage';
 import PlanSelection from './components/PlanSelection';
@@ -9,7 +8,8 @@ import MyJournal from './components/MyJournal';
 import BadgeGallery from './components/BadgeGallery';
 import DailyCheckinModal from './components/DailyCheckinModal';
 import MoodCalendar from './components/MoodCalendar';
-import { DAILY_PROMPTS } from './constants';
+import ProfilePage from './components/ProfilePage';
+import { DAILY_PROMPTS, DEFAULT_AVATAR_CONFIG, JOURNAL_THEMES } from './constants';
 
 // --- LOCAL STORAGE KEYS ---
 const JOURNAL_KEY = 'journalEntries';
@@ -17,6 +17,8 @@ const BADGES_KEY = 'collectedBadges';
 const MOOD_KEY = 'moodEntries';
 const THOUGHT_KEY = 'dailyThoughts';
 const STREAK_KEY = 'streakData';
+const AVATAR_KEY = 'avatarConfig';
+const THEME_KEY = 'activeThemeId';
 
 
 const App: React.FC = () => {
@@ -30,6 +32,9 @@ const App: React.FC = () => {
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
   const [dailyThoughts, setDailyThoughts] = useState<DailyThought[]>([]);
   const [streakData, setStreakData] = useState<StreakData>({ currentStreak: 0, lastCheckinDate: '' });
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG);
+  const [activeThemeId, setActiveThemeId] = useState<string>('default');
+
 
   // State for daily check-in flow
   const [showDailyCheckin, setShowDailyCheckin] = useState(false);
@@ -47,7 +52,13 @@ const App: React.FC = () => {
     const loadData = <T,>(key: string, defaultValue: T): T => {
       try {
         const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : defaultValue;
+        if (item === null || item === 'undefined') return defaultValue;
+        const parsed = JSON.parse(item);
+        // Basic merge for avatar config to ensure new properties are added
+        if (key === AVATAR_KEY) {
+            return { ...defaultValue, ...parsed, parts: {...(defaultValue as any).parts, ...parsed.parts}, colors: {...(defaultValue as any).colors, ...parsed.colors} };
+        }
+        return parsed;
       } catch (error) {
         console.error(`Error loading ${key} from localStorage`, error);
         return defaultValue;
@@ -58,6 +69,8 @@ const App: React.FC = () => {
     setCollectedBadges(new Set(loadData(BADGES_KEY, [])));
     setMoodEntries(loadData(MOOD_KEY, []));
     setDailyThoughts(loadData(THOUGHT_KEY, []));
+    setAvatarConfig(loadData(AVATAR_KEY, DEFAULT_AVATAR_CONFIG));
+    setActiveThemeId(loadData(THEME_KEY, 'default'));
     const loadedStreak: StreakData = loadData(STREAK_KEY, { currentStreak: 0, lastCheckinDate: '' });
     setStreakData(loadedStreak);
 
@@ -70,12 +83,14 @@ const App: React.FC = () => {
   }, []);
 
   // --- EFFECTS TO SAVE STATE TO LOCAL STORAGE ---
-  // These effects trigger whenever their respective state changes, ensuring data is always persisted.
   useEffect(() => { localStorage.setItem(JOURNAL_KEY, JSON.stringify(journalEntries)); }, [journalEntries]);
   useEffect(() => { localStorage.setItem(BADGES_KEY, JSON.stringify(Array.from(collectedBadges))); }, [collectedBadges]);
   useEffect(() => { localStorage.setItem(MOOD_KEY, JSON.stringify(moodEntries)); }, [moodEntries]);
   useEffect(() => { localStorage.setItem(THOUGHT_KEY, JSON.stringify(dailyThoughts)); }, [dailyThoughts]);
   useEffect(() => { localStorage.setItem(STREAK_KEY, JSON.stringify(streakData)); }, [streakData]);
+  useEffect(() => { localStorage.setItem(AVATAR_KEY, JSON.stringify(avatarConfig)); }, [avatarConfig]);
+  useEffect(() => { localStorage.setItem(THEME_KEY, JSON.stringify(activeThemeId)); }, [activeThemeId]);
+
 
   // --- NAVIGATION & CORE LOGIC HANDLERS ---
   const handleNavigate = useCallback((page: Page) => {
@@ -84,7 +99,6 @@ const App: React.FC = () => {
 
   const handleStart = () => {
     if (showDailyCheckin) {
-      // If modal is pending, just stay on home, it will show over it
       return;
     }
     setCurrentPage(Page.PlanSelection);
@@ -110,7 +124,6 @@ const App: React.FC = () => {
     setMoodEntries(prev => [...prev, mood]);
     setDailyThoughts(prev => [...prev, thought]);
 
-    // Calculate new streak
     const today = getTodayDateString();
     const yesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0];
     
@@ -122,7 +135,6 @@ const App: React.FC = () => {
     const newStreakData = { currentStreak: newStreakCount, lastCheckinDate: today };
     setStreakData(newStreakData);
 
-    // Award streak badges
     const newBadges = new Set(collectedBadges);
     if (newStreakCount >= 3) newBadges.add(BadgeName.Streak3);
     if (newStreakCount >= 7) newBadges.add(BadgeName.Streak7);
@@ -145,22 +157,31 @@ const App: React.FC = () => {
         }
         return <PlanSelection onSelectPlan={handleSelectPlan} />;
       case Page.MyJournal:
-        return <MyJournal entries={journalEntries} onNavigateToPlans={() => setCurrentPage(Page.PlanSelection)} />;
+        return <MyJournal entries={journalEntries} onNavigateToPlans={() => setCurrentPage(Page.PlanSelection)} avatarConfig={avatarConfig} activeThemeId={activeThemeId} collectedBadges={collectedBadges} />;
       case Page.BadgeGallery:
         return <BadgeGallery collectedBadges={collectedBadges} />;
       case Page.MoodCalendar:
         return <MoodCalendar moodEntries={moodEntries} />;
+      case Page.Profile:
+        return <ProfilePage 
+                  avatarConfig={avatarConfig}
+                  setAvatarConfig={setAvatarConfig}
+                  collectedBadges={collectedBadges}
+                  activeThemeId={activeThemeId}
+                  setActiveThemeId={setActiveThemeId}
+                />;
       default:
         return <Homepage onStart={handleStart} />;
     }
   };
 
+  const activeTheme = JOURNAL_THEMES.find(t => t.id === activeThemeId) || JOURNAL_THEMES[0];
+  const pageBgClass = currentPage === Page.MyJournal ? '' : 'bg-slate-50';
+
   return (
-    <main className="text-slate-700 text-xl bg-slate-50 min-h-screen">
-      {/* Show Header on all pages except Home */}
+    <main className={`text-slate-700 text-xl min-h-screen ${pageBgClass}`}>
       {currentPage !== Page.Home && <Header onNavigate={handleNavigate} streakData={streakData} />}
       
-      {/* Conditionally render the daily check-in modal on top of the current page */}
       {showDailyCheckin && currentPage === Page.Home && (
           <DailyCheckinModal 
             dailyPrompt={getDailyPrompt()}

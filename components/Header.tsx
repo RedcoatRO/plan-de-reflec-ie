@@ -14,6 +14,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, streakData }) => {
     { page: Page.MyJournal, label: '📖 Jurnalul Meu' },
     { page: Page.MoodCalendar, label: '🗓️ Calendarul Meu'},
     { page: Page.BadgeGallery, label: '🏆 Insigne' },
+    { page: Page.Profile, label: '👤 Profilul Meu' },
   ];
 
   return (
